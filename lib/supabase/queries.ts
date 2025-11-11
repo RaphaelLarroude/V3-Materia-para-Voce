@@ -1,5 +1,14 @@
 import { createBrowserClient } from "./client"
-import type { Course, StoredUser, SidebarLink, CalendarEvent } from "@/types"
+import type {
+  Course,
+  StoredUser,
+  SidebarLink,
+  CalendarEvent,
+  Notification,
+  CourseModule,
+  StudyMaterialCategory,
+  StudyMaterial,
+} from "@/types"
 
 // User queries
 export async function getUsers(): Promise<StoredUser[]> {
@@ -227,6 +236,165 @@ export async function updateEvent(eventId: string, updates: Partial<CalendarEven
 export async function deleteEvent(eventId: string) {
   const supabase = createBrowserClient()
   const { error } = await supabase.from("calendar_events").delete().eq("id", eventId)
+
+  if (error) throw error
+}
+
+// Notification queries
+export async function getNotifications(userId: string): Promise<Notification[]> {
+  const supabase = createBrowserClient()
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("*")
+    .eq("user_id", userId)
+    .order("timestamp", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching notifications:", error)
+    return []
+  }
+
+  return data.map((notification) => ({
+    id: notification.id,
+    message: notification.message,
+    timestamp: notification.timestamp,
+    read: notification.read,
+  }))
+}
+
+export async function markNotificationAsRead(notificationId: string) {
+  const supabase = createBrowserClient()
+  const { error } = await supabase.from("notifications").update({ read: true }).eq("id", notificationId)
+
+  if (error) throw error
+}
+
+export async function markAllNotificationsAsRead(userId: string) {
+  const supabase = createBrowserClient()
+  const { error } = await supabase.from("notifications").update({ read: true }).eq("user_id", userId).eq("read", false)
+
+  if (error) throw error
+}
+
+// Course Module queries
+export async function getModulesByCourse(courseId: string): Promise<CourseModule[]> {
+  const supabase = createBrowserClient()
+  const { data, error } = await supabase
+    .from("course_modules")
+    .select("*")
+    .eq("course_id", courseId)
+    .order("created_at")
+
+  if (error) {
+    console.error("Error fetching modules:", error)
+    return []
+  }
+
+  return data
+}
+
+export async function createModule(module: {
+  courseId: string
+  title: string
+  illustrationUrl: string
+  classrooms?: string[]
+  years?: number[]
+}) {
+  const supabase = createBrowserClient()
+  const { error } = await supabase.from("course_modules").insert({
+    course_id: module.courseId,
+    title: module.title,
+    illustration_url: module.illustrationUrl,
+    classrooms: module.classrooms,
+    years: module.years,
+  })
+
+  if (error) throw error
+}
+
+// Study Material Category queries
+export async function getCategoriesByModule(moduleId: string): Promise<StudyMaterialCategory[]> {
+  const supabase = createBrowserClient()
+  const { data, error } = await supabase
+    .from("study_material_categories")
+    .select("*")
+    .eq("module_id", moduleId)
+    .order("created_at")
+
+  if (error) {
+    console.error("Error fetching categories:", error)
+    return []
+  }
+
+  return data
+}
+
+export async function createCategory(category: {
+  moduleId: string
+  title: string
+  illustrationUrl: string
+  classrooms?: string[]
+  years?: number[]
+}) {
+  const supabase = createBrowserClient()
+  const { error } = await supabase.from("study_material_categories").insert({
+    module_id: category.moduleId,
+    title: category.title,
+    illustration_url: category.illustrationUrl,
+    classrooms: category.classrooms,
+    years: category.years,
+  })
+
+  if (error) throw error
+}
+
+// Study Material queries
+export async function getMaterialsByCategory(categoryId: string): Promise<StudyMaterial[]> {
+  const supabase = createBrowserClient()
+  const { data, error } = await supabase
+    .from("study_materials")
+    .select("*")
+    .eq("category_id", categoryId)
+    .order("created_at")
+
+  if (error) {
+    console.error("Error fetching materials:", error)
+    return []
+  }
+
+  return data.map((material) => ({
+    id: material.id,
+    title: material.title,
+    type: material.type,
+    content: material.content,
+    fileName: material.file_name,
+    fileType: material.file_type,
+    classrooms: material.classrooms || [],
+    years: material.years || [],
+  }))
+}
+
+export async function createMaterial(material: {
+  categoryId: string
+  title: string
+  type: "file" | "link"
+  content: string
+  fileName?: string
+  fileType?: string
+  classrooms?: string[]
+  years?: number[]
+}) {
+  const supabase = createBrowserClient()
+  const { error } = await supabase.from("study_materials").insert({
+    category_id: material.categoryId,
+    title: material.title,
+    type: material.type,
+    content: material.content,
+    file_name: material.fileName,
+    file_type: material.fileType,
+    classrooms: material.classrooms,
+    years: material.years,
+  })
 
   if (error) throw error
 }
